@@ -43,34 +43,46 @@ export function BookingForm({ defaultName, defaultPhone }: Props) {
   const [error, setError] = useState("");
   const [created, setCreated] = useState<CreatedAppointment | null>(null);
 
-  useEffect(() => {
-    fetch("/api/doctors")
-      .then(async (response) => {
-        const data = (await response.json()) as { doctors?: Doctor[]; error?: string };
-        if (!response.ok) throw new Error(data.error ?? "Không tải được danh sách bác sĩ.");
-        setDoctors(data.doctors ?? []);
-        if (data.doctors?.[0]) setDoctorId(data.doctors[0].id);
-      })
-      .catch((err: Error) => setError(err.message));
-  }, []);
-
-  useEffect(() => {
-    if (!doctorId) {
+  async function loadSlots(nextDoctorId: string) {
+    if (!nextDoctorId) {
       setSlots([]);
       setSlotId("");
       return;
     }
     setLoadingSlots(true);
     setSlotId("");
-    fetch(`/api/slots?doctorId=${encodeURIComponent(doctorId)}`)
+    try {
+      const response = await fetch(`/api/slots?doctorId=${encodeURIComponent(nextDoctorId)}`);
+      const data = (await response.json()) as { slots?: Slot[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Không tải được khung giờ.");
+      setSlots(data.slots ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không tải được khung giờ.");
+    } finally {
+      setLoadingSlots(false);
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/doctors")
       .then(async (response) => {
-        const data = (await response.json()) as { slots?: Slot[]; error?: string };
-        if (!response.ok) throw new Error(data.error ?? "Không tải được khung giờ.");
-        setSlots(data.slots ?? []);
+        const data = (await response.json()) as { doctors?: Doctor[]; error?: string };
+        if (!response.ok) throw new Error(data.error ?? "Không tải được danh sách bác sĩ.");
+        if (cancelled) return;
+        const nextDoctors = data.doctors ?? [];
+        setDoctors(nextDoctors);
+        const firstId = nextDoctors[0]?.id ?? "";
+        setDoctorId(firstId);
+        await loadSlots(firstId);
       })
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoadingSlots(false));
-  }, [doctorId]);
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -136,7 +148,11 @@ export function BookingForm({ defaultName, defaultPhone }: Props) {
           className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none ring-teal-600 focus:ring-2"
           name="doctorId"
           value={doctorId}
-          onChange={(e) => setDoctorId(e.target.value)}
+          onChange={(e) => {
+            const nextDoctorId = e.target.value;
+            setDoctorId(nextDoctorId);
+            void loadSlots(nextDoctorId);
+          }}
           required
         >
           {doctors.map((doctor) => (
