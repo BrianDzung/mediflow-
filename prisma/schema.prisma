@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Clinic {
+  id      String   @id @default(cuid())
+  name    String
+  doctors Doctor[]
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  role          String // patient | receptionist
+  name          String
+  phone         String?
+  appointments  Appointment[]
+}
+
+model Doctor {
+  id       String  @id @default(cuid())
+  clinicId String
+  clinic   Clinic  @relation(fields: [clinicId], references: [id])
+  name     String
+  specialty String
+  slots    Slot[]
+}
+
+model Slot {
+  id          String        @id @default(cuid())
+  doctorId    String
+  doctor      Doctor        @relation(fields: [doctorId], references: [id])
+  startsAt    DateTime
+  endsAt      DateTime
+  status      String        @default("open") // open | booked
+  appointment Appointment?
+
+  @@index([doctorId, status])
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  slotId        String   @unique
+  slot          Slot     @relation(fields: [slotId], references: [id])
+  patientUserId String
+  patient       User     @relation(fields: [patientUserId], references: [id])
+  patientName   String
+  patientPhone  String
+  status        String   @default("pending") // pending | confirmed | rejected
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
