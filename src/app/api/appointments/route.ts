@@ -4,6 +4,7 @@ import {
   bookAppointment,
   BookingError,
   listPatientAppointments,
+  serializeAppointment,
 } from "@/lib/booking";
 
 export const runtime = "nodejs";
@@ -68,25 +69,4 @@ export async function POST(request: Request) {
     console.error(error);
     return NextResponse.json({ error: "Không thể tạo lịch hẹn.", code: "ERROR" }, { status: 500 });
   }
-}
-
-function serializeAppointment(appointment: {
-  id: string;
-  status: string;
-  patientName: string;
-  patientPhone: string;
-  createdAt: Date;
-  slot: { startsAt: Date; endsAt: Date; doctor: { name: string; specialty: string } };
-}) {
-  return {
-    id: appointment.id,
-    status: appointment.status,
-    patientName: appointment.patientName,
-    patientPhone: appointment.patientPhone,
-    createdAt: appointment.createdAt.toISOString(),
-    doctorName: appointment.slot.doctor.name,
-    doctorSpecialty: appointment.slot.doctor.specialty,
-    startsAt: appointment.slot.startsAt.toISOString(),
-    endsAt: appointment.slot.endsAt.toISOString(),
-  };
 }

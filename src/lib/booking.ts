@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { PILOT_CLINIC_NAME } from "./constants";
 import { prisma } from "./prisma";
 import { isValidPhone, normalizePhone, trimRequired } from "./validation";
 
@@ -134,4 +135,58 @@ export async function listPatientAppointments(
     include: { slot: { include: { doctor: true } } },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export async function getPilotClinic(client: PrismaClient = prisma) {
+  const clinic =
+    (await client.clinic.findFirst({ where: { name: PILOT_CLINIC_NAME } })) ??
+    (await client.clinic.findFirst());
+  if (!clinic) {
+    throw new BookingError("SLOT_NOT_FOUND", "Chưa có phòng khám demo.");
+  }
+  return clinic;
+}
+
+export async function listPendingAppointmentsForClinic(
+  clinicId: string,
+  client: PrismaClient = prisma,
+) {
+  return client.appointment.findMany({
+    where: {
+      status: "pending",
+      slot: { doctor: { clinicId } },
+    },
+    include: {
+      slot: { include: { doctor: { include: { clinic: true } } } },
+    },
+    orderBy: { slot: { startsAt: "asc" } },
+  });
+}
+
+export type AppointmentView = {
+  id: string;
+  status: string;
+  patientName: string;
+  patientPhone: string;
+  createdAt: Date;
+  slot: {
+    startsAt: Date;
+    endsAt: Date;
+    doctor: { name: string; specialty: string; clinic?: { name: string } };
+  };
+};
+
+export function serializeAppointment(appointment: AppointmentView) {
+  return {
+    id: appointment.id,
+    status: appointment.status,
+    patientName: appointment.patientName,
+    patientPhone: appointment.patientPhone,
+    createdAt: appointment.createdAt.toISOString(),
+    doctorName: appointment.slot.doctor.name,
+    doctorSpecialty: appointment.slot.doctor.specialty,
+    clinicName: appointment.slot.doctor.clinic?.name ?? null,
+    startsAt: appointment.slot.startsAt.toISOString(),
+    endsAt: appointment.slot.endsAt.toISOString(),
+  };
 }

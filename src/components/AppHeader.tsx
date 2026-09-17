@@ -21,7 +21,11 @@ export function AppHeader({ user }: { user: SessionUser | null }) {
                 </Link>
               </nav>
             ) : (
-              <span className="text-sm text-teal-100">Lễ tân</span>
+              <nav className="flex gap-3 text-sm text-teal-50">
+                <Link className="hover:underline" href="/receptionist">
+                  Lịch chờ xác nhận
+                </Link>
+              </nav>
             )}
             <LogoutButton userName={user.name} />
           </div>

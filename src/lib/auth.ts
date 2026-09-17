@@ -69,11 +69,29 @@ export async function getSession(): Promise<SessionUser | null> {
 }
 
 export async function requireSession(): Promise<SessionUser> {
-  const session = await getSession();
+  return assertAuthenticated(await getSession());
+}
+
+export function assertAuthenticated(session: SessionUser | null): SessionUser {
   if (!session) {
     throw new AuthError("UNAUTHENTICATED", "Vui lòng đăng nhập.");
   }
   return session;
+}
+
+export function assertReceptionist(session: SessionUser | null): SessionUser {
+  const user = assertAuthenticated(session);
+  if (user.role !== "receptionist") {
+    throw new AuthError(
+      "FORBIDDEN",
+      "Chỉ lễ tân mới xem danh sách lịch chờ xác nhận.",
+    );
+  }
+  return user;
+}
+
+export async function requireReceptionist(): Promise<SessionUser> {
+  return assertReceptionist(await getSession());
 }
 
 export class AuthError extends Error {
