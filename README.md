@@ -134,7 +134,19 @@ npm run lint
 npm run build
 ```
 
-Covers login success/failure, role guards (patient vs receptionist, pages + APIs), logout session invalidation, booking, receptionist pending list, confirm/reject, and staging seed/reset authorization. CI also starts `npm run staging:start` and runs the HTTP smoke script.
+Covers login success/failure, role guards (patient vs receptionist, pages + APIs), logout session invalidation, booking (pending, validation, double-book 409), receptionist pending list, confirm/reject (including 409 already-decided and patient 403), and staging seed/reset authorization. Latest local/CI command results: see `TEST_REPORT.md`.
+
+CI runs `npm test`, `npm run lint`, `npm run build`, then starts `npm run staging:start` and runs `npm run smoke` against `http://127.0.0.1:3000`. There is **no live staging URL** in this repo.
+
+Local smoke (same as CI):
+
+```bash
+cp .env.example .env
+npm run build
+DATABASE_URL=file:./smoke.db STAGING_RESET_TOKEN=local-staging-reset SEED_ON_START=if-empty PORT=3000 HOSTNAME=127.0.0.1 npm run staging:start
+# other terminal:
+BASE_URL=http://127.0.0.1:3000 STAGING_RESET_TOKEN=local-staging-reset npm run smoke
+```
 
 ## Scripts
 
@@ -145,7 +157,7 @@ Covers login success/failure, role guards (patient vs receptionist, pages + APIs
 | `npm run db:seed` | Re-seed demo clinic/users/slots |
 | `npm run db:reset` | Wipe SQLite DB and re-seed |
 | `npm run staging:start` | `db push`, seed if empty, `next start` (0.0.0.0 / `$PORT`) |
-| `npm run smoke` | HTTP E2E: health, optional reset, book → confirm |
+| `npm run smoke` | HTTP E2E: health, reset auth, login/roles/logout, book → confirm/reject |
 | `npm test` | Vitest (auth, booking, receptionist, staging) |
 | `npm run build` / `npm start` | Production server |
 
