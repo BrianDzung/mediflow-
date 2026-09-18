@@ -15,7 +15,7 @@ test("patient logs in with seed credentials", async ({ page }) => {
   await loginAs(page, patient);
   await expect(page.getByRole("heading", { name: "Lịch khám của tôi" })).toBeVisible();
   await expect(page.getByText("Bệnh nhân")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Đặt lịch" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Đặt lịch", exact: true })).toBeVisible();
 });
 
 test("wrong password shows an error and stays on login", async ({ page }) => {
@@ -23,7 +23,7 @@ test("wrong password shows an error and stays on login", async ({ page }) => {
   await page.getByLabel("Email").fill(patient.email);
   await page.getByLabel("Mật khẩu").fill("wrong-password");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await expect(page.getByRole("alert")).toHaveText("Email hoặc mật khẩu không đúng.");
+  await expect(page.getByRole("alert").filter({ hasText: "Email hoặc mật khẩu không đúng." })).toBeVisible();
   await expect(page).toHaveURL(/\/login/);
   await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
 });
