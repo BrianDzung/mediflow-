@@ -1,0 +1,27 @@
+# Fly.io staging template. Brian must run `fly launch` (creates a unique app
+# name + URL). Replace `app` below with that name. Do not invent a URL.
+
+app = "mediflow-staging"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  HOSTNAME = "0.0.0.0"
+  PORT = "3000"
+  DATABASE_URL = "file:/app/data/staging.db"
+  SEED_ON_START = "if-empty"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

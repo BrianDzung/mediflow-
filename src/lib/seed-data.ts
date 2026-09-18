@@ -1,8 +1,29 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { PILOT_CLINIC_NAME } from "../src/lib/constants";
+import { PILOT_CLINIC_NAME } from "./constants";
 
 export const DEMO_PASSWORD = "demo1234";
+
+export const DEMO_USERS = [
+  {
+    email: "patient@mediflow.demo",
+    role: "patient",
+    name: "Nguyễn Thị Hoa",
+    phone: "0901234567",
+  },
+  {
+    email: "patient2@mediflow.demo",
+    role: "patient",
+    name: "Lê Văn Nam",
+    phone: "0912345678",
+  },
+  {
+    email: "receptionist@mediflow.demo",
+    role: "receptionist",
+    name: "Phạm Thị Lan",
+    phone: "0987654321",
+  },
+] as const;
 
 function slotAt(daysFromNow: number, hourUtc: number, minute: number) {
   const start = new Date();
@@ -26,29 +47,13 @@ export async function seedDatabase(client: PrismaClient) {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   await client.user.createMany({
-    data: [
-      {
-        email: "patient@mediflow.demo",
-        passwordHash,
-        role: "patient",
-        name: "Nguyễn Thị Hoa",
-        phone: "0901234567",
-      },
-      {
-        email: "patient2@mediflow.demo",
-        passwordHash,
-        role: "patient",
-        name: "Lê Văn Nam",
-        phone: "0912345678",
-      },
-      {
-        email: "receptionist@mediflow.demo",
-        passwordHash,
-        role: "receptionist",
-        name: "Phạm Thị Lan",
-        phone: "0987654321",
-      },
-    ],
+    data: DEMO_USERS.map((user) => ({
+      email: user.email,
+      passwordHash,
+      role: user.role,
+      name: user.name,
+      phone: user.phone,
+    })),
   });
 
   const internist = await client.doctor.create({

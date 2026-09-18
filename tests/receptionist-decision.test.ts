@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { seedDatabase } from "../prisma/seed-data";
+import { seedDatabase } from "../src/lib/seed-data";
 import { AuthError, type SessionUser } from "../src/lib/auth";
 import { bookAppointment, listPatientAppointments } from "../src/lib/booking";
 import {

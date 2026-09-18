@@ -26,3 +26,24 @@ jobs:
           DATABASE_URL: file:./test.db
         run: npm test
       - run: npm run build
+      - name: Smoke E2E (health, seed, book → confirm)
+        env:
+          DATABASE_URL: file:./smoke.db
+          STAGING_RESET_TOKEN: ci-staging-reset-token
+          SEED_ON_START: if-empty
+          PORT: "3000"
+          HOSTNAME: 127.0.0.1
+        run: |
+          npm run staging:start &
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:3000/api/health >/dev/null; then
+              echo "staging server ready"
+              break
+            fi
+            if [ "$i" -eq 90 ]; then
+              echo "staging server did not become ready"
+              exit 1
+            fi
+            sleep 1
+          done
+          node scripts/smoke-e2e.mjs

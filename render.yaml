@@ -1,0 +1,21 @@
+# Render Blueprint for MediFlow staging (SQLite on the service disk).
+# Brian: in Render → New → Blueprint, connect github.com/BrianDzung/mediflow-
+# and apply this file. Copy the public URL into README after the first deploy.
+services:
+  - type: web
+    name: mediflow-staging
+    runtime: node
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npm run staging:start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./staging.db
+      - key: SEED_ON_START
+        value: if-empty
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: STAGING_RESET_TOKEN
+        generateValue: true
