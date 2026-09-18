@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { getSession } from "@/lib/auth";
 import { listPatientAppointments } from "@/lib/booking";
-import { formatSlotRange, statusLabel } from "@/lib/format";
+import { formatSlotRange, statusClassName, statusLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -54,9 +54,12 @@ export default async function HomePage() {
                 <p className="mt-1 text-sm">
                   {appointment.patientName} — {appointment.patientPhone}
                 </p>
-                <p className="mt-2 text-sm font-semibold text-teal-800">
+                <p className={`mt-2 text-sm font-semibold ${statusClassName(appointment.status)}`}>
                   {statusLabel(appointment.status)}
                 </p>
+                {appointment.status === "rejected" && appointment.note ? (
+                  <p className="mt-1 text-sm text-slate-600">Lý do: {appointment.note}</p>
+                ) : null}
               </li>
             ))}
           </ul>
