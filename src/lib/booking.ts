@@ -168,6 +168,7 @@ export type AppointmentView = {
   status: string;
   patientName: string;
   patientPhone: string;
+  note?: string | null;
   createdAt: Date;
   slot: {
     startsAt: Date;
@@ -182,6 +183,7 @@ export function serializeAppointment(appointment: AppointmentView) {
     status: appointment.status,
     patientName: appointment.patientName,
     patientPhone: appointment.patientPhone,
+    note: appointment.note ?? null,
     createdAt: appointment.createdAt.toISOString(),
     doctorName: appointment.slot.doctor.name,
     doctorSpecialty: appointment.slot.doctor.specialty,

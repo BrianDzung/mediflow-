@@ -79,13 +79,13 @@ export function assertAuthenticated(session: SessionUser | null): SessionUser {
   return session;
 }
 
-export function assertReceptionist(session: SessionUser | null): SessionUser {
+export function assertReceptionist(
+  session: SessionUser | null,
+  message = "Chỉ lễ tân mới xem danh sách lịch chờ xác nhận.",
+): SessionUser {
   const user = assertAuthenticated(session);
   if (user.role !== "receptionist") {
-    throw new AuthError(
-      "FORBIDDEN",
-      "Chỉ lễ tân mới xem danh sách lịch chờ xác nhận.",
-    );
+    throw new AuthError("FORBIDDEN", message);
   }
   return user;
 }

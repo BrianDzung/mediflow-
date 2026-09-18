@@ -20,8 +20,8 @@ export default async function BookPage() {
       <main className="mx-auto max-w-xl px-4 py-8">
         <h1 className="text-2xl font-semibold">Đặt lịch khám</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Chọn bác sĩ, khung giờ còn trống, rồi gửi yêu cầu. Lễ tân sẽ xác nhận sau
-          (M3).
+          Chọn bác sĩ, khung giờ còn trống, rồi gửi yêu cầu. Lễ tân sẽ xác nhận hoặc
+          từ chối trên màn hình chờ.
         </p>
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <BookingForm defaultName={user.name} defaultPhone={user.phone ?? ""} />

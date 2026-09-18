@@ -35,3 +35,14 @@ export function statusLabel(status: string) {
       return status;
   }
 }
+
+export function statusClassName(status: string) {
+  switch (status) {
+    case "confirmed":
+      return "text-emerald-800";
+    case "rejected":
+      return "text-rose-800";
+    default:
+      return "text-teal-800";
+  }
+}
