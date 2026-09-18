@@ -1,12 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { seedDatabase } from "../src/lib/seed-data";
-import {
-  bookAppointment,
-  BookingError,
-  listOpenSlots,
-  listPatientAppointments,
-} from "../src/lib/booking";
+import { bookAppointment, listOpenSlots, listPatientAppointments } from "../src/lib/booking";
 
 const prisma = new PrismaClient();
 
@@ -116,10 +111,43 @@ describe("bookAppointment", () => {
         },
         prisma,
       ),
-    ).rejects.toBeInstanceOf(BookingError);
+    ).rejects.toMatchObject({ code: "SLOT_TAKEN", name: "BookingError" });
 
     expect(await prisma.appointment.count()).toBe(1);
     expect((await prisma.slot.findUnique({ where: { id: slot.id } }))?.status).toBe("booked");
+  });
+
+  it("rejects a missing name or invalid phone without creating a record", async () => {
+    const patient = await getPatient("patient@mediflow.demo");
+    const slot = await prisma.slot.findFirst({ where: { status: "open" } });
+    if (!slot) throw new Error("expected seed slots");
+
+    await expect(
+      bookAppointment(
+        {
+          patientUserId: patient.id,
+          slotId: slot.id,
+          patientName: "   ",
+          patientPhone: "0901234567",
+        },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "VALIDATION", name: "BookingError" });
+
+    await expect(
+      bookAppointment(
+        {
+          patientUserId: patient.id,
+          slotId: slot.id,
+          patientName: patient.name,
+          patientPhone: "12345",
+        },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+
+    expect(await prisma.appointment.count()).toBe(0);
+    expect((await prisma.slot.findUnique({ where: { id: slot.id } }))?.status).toBe("open");
   });
 
   it("lists only the signed-in patient's own appointments", async () => {

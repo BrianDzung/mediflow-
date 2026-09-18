@@ -25,6 +25,7 @@ jobs:
         env:
           DATABASE_URL: file:./test.db
         run: npm test
+      - run: npm run lint
       - run: npm run build
       - name: Smoke E2E (health, seed, book → confirm)
         env:

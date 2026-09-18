@@ -242,4 +242,38 @@ describe("logout invalidates the session", () => {
       email: "patient@mediflow.demo",
     });
   });
+
+  it("rejects a missing, garbage, or tampered token", async () => {
+    const { token } = await loginWithPassword(
+      "patient@mediflow.demo",
+      DEMO_PASSWORD,
+      undefined,
+      prisma,
+    );
+
+    expect(await readSessionFromToken(undefined, prisma)).toBeNull();
+    expect(await readSessionFromToken("", prisma)).toBeNull();
+    expect(await readSessionFromToken("not-a-jwt", prisma)).toBeNull();
+
+    const tampered = `${token.slice(0, -6)}xxxxxx`;
+    expect(await readSessionFromToken(tampered, prisma)).toBeNull();
+    expect(await readSessionFromToken(token, prisma)).not.toBeNull();
+  });
+
+  it("treats an expired server-side session row as logged out", async () => {
+    const { token } = await loginWithPassword(
+      "patient@mediflow.demo",
+      DEMO_PASSWORD,
+      undefined,
+      prisma,
+    );
+    expect(await prisma.session.count()).toBe(1);
+
+    await prisma.session.updateMany({
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+
+    expect(await readSessionFromToken(token, prisma)).toBeNull();
+    expect(() => assertAuthenticated(null)).toThrowError(AuthError);
+  });
 });

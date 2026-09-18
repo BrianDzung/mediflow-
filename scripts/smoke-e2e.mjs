@@ -79,6 +79,13 @@ async function main() {
   });
 
   if (RESET_TOKEN) {
+    await expectJson("/api/staging/reset", { method: "POST" }, 401, "UNAUTHORIZED");
+    await expectJson(
+      "/api/staging/reset",
+      { method: "POST", headers: { authorization: "Bearer wrong-token" } },
+      401,
+      "UNAUTHORIZED",
+    );
     const resetResponse = await fetch(`${BASE_URL}/api/staging/reset`, {
       method: "POST",
       headers: { authorization: `Bearer ${RESET_TOKEN}` },
@@ -92,6 +99,9 @@ async function main() {
       doctorCount: resetBody.doctorCount,
       openSlotCount: resetBody.openSlotCount,
     });
+  } else {
+    await expectJson("/api/staging/reset", { method: "POST" }, 404, "DISABLED");
+    console.log("reset disabled (no STAGING_RESET_TOKEN) ok");
   }
 
   const inventoryResponse = await fetch(`${BASE_URL}/api/health`);
@@ -198,6 +208,35 @@ async function main() {
   const appointmentId = bookBody.appointment.id;
   console.log("booked pending", appointmentId);
 
+  const invalidBook = await fetch(`${BASE_URL}/api/appointments`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: patientCookieFresh },
+    body: JSON.stringify({
+      slotId: slot.id,
+      patientName: "Nguyễn Thị Hoa",
+      patientPhone: "   ",
+    }),
+  });
+  const invalidBookBody = await readJson(invalidBook);
+  if (invalidBook.status !== 400 || invalidBookBody.code !== "VALIDATION") {
+    fail(`invalid book expected 400 VALIDATION got ${invalidBook.status}: ${JSON.stringify(invalidBookBody)}`);
+  }
+
+  const doubleBook = await fetch(`${BASE_URL}/api/appointments`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: patientCookieFresh },
+    body: JSON.stringify({
+      slotId: slot.id,
+      patientName: "Lê Văn Nam",
+      patientPhone: "0912345678",
+    }),
+  });
+  const doubleBookBody = await readJson(doubleBook);
+  if (doubleBook.status !== 409 || doubleBookBody.code !== "SLOT_TAKEN") {
+    fail(`double-book expected 409 SLOT_TAKEN got ${doubleBook.status}: ${JSON.stringify(doubleBookBody)}`);
+  }
+  console.log("booking validation + double-book 409 ok");
+
   const patientConfirm = await fetch(`${BASE_URL}/api/receptionist/appointments/${appointmentId}`, {
     method: "POST",
     headers: { "content-type": "application/json", cookie: patientCookieFresh },
@@ -232,6 +271,18 @@ async function main() {
   }
   console.log("confirmed", appointmentId);
 
+  const confirmAgain = await fetch(`${BASE_URL}/api/receptionist/appointments/${appointmentId}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: receptionistCookieFresh },
+    body: JSON.stringify({ decision: "confirm" }),
+  });
+  const confirmAgainBody = await readJson(confirmAgain);
+  if (confirmAgain.status !== 409 || confirmAgainBody.code !== "ALREADY_DECIDED") {
+    fail(
+      `confirm-again expected 409 ALREADY_DECIDED got ${confirmAgain.status}: ${JSON.stringify(confirmAgainBody)}`,
+    );
+  }
+
   const { cookie: patientCookieAgain } = await login(PATIENT_EMAIL, DEMO_PASSWORD);
   const mineResponse = await fetch(`${BASE_URL}/api/appointments`, {
     headers: { cookie: patientCookieAgain },
@@ -244,8 +295,53 @@ async function main() {
   if (!mine) fail("patient list is missing the confirmed appointment");
   if (mine.status !== "confirmed") fail(`expected confirmed, got ${mine.status}`);
 
+  const slotsAgainResponse = await fetch(
+    `${BASE_URL}/api/slots?doctorId=${encodeURIComponent(doctor.id)}`,
+    { headers: { cookie: patientCookieAgain } },
+  );
+  const slotsAgainBody = await readJson(slotsAgainResponse);
+  if (!slotsAgainResponse.ok || !slotsAgainBody.slots?.length) {
+    fail(`slots for reject path ${slotsAgainResponse.status}: ${JSON.stringify(slotsAgainBody)}`);
+  }
+  const rejectSlot = slotsAgainBody.slots[0];
+  const rejectBookResponse = await fetch(`${BASE_URL}/api/appointments`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: patientCookieAgain },
+    body: JSON.stringify({
+      slotId: rejectSlot.id,
+      patientName: "Nguyễn Thị Hoa",
+      patientPhone: "0901234567",
+    }),
+  });
+  const rejectBookBody = await readJson(rejectBookResponse);
+  if (rejectBookResponse.status !== 201 || rejectBookBody.appointment?.status !== "pending") {
+    fail(`reject-path book ${rejectBookResponse.status}: ${JSON.stringify(rejectBookBody)}`);
+  }
+  const rejectedId = rejectBookBody.appointment.id;
+  const rejectResponse = await fetch(`${BASE_URL}/api/receptionist/appointments/${rejectedId}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: receptionistCookieFresh },
+    body: JSON.stringify({ decision: "reject", reason: "Bác sĩ bận vào khung giờ này" }),
+  });
+  const rejectBody = await readJson(rejectResponse);
+  if (!rejectResponse.ok || rejectBody.appointment?.status !== "rejected") {
+    fail(`reject ${rejectResponse.status}: ${JSON.stringify(rejectBody)}`);
+  }
+  const mineAfterRejectResponse = await fetch(`${BASE_URL}/api/appointments`, {
+    headers: { cookie: patientCookieAgain },
+  });
+  const mineAfterRejectBody = await readJson(mineAfterRejectResponse);
+  const rejectedRow = (mineAfterRejectBody.appointments ?? []).find((row) => row.id === rejectedId);
+  if (!rejectedRow || rejectedRow.status !== "rejected") {
+    fail(`patient did not see rejected status: ${JSON.stringify(mineAfterRejectBody)}`);
+  }
+  if (rejectedRow.note !== "Bác sĩ bận vào khung giờ này") {
+    fail(`patient did not see reject reason: ${JSON.stringify(rejectedRow)}`);
+  }
+  console.log("reject + patient sees rejected ok");
+
   console.log(
-    "SMOKE PASS: login/roles/logout + patient book → receptionist confirm → patient sees confirmed",
+    "SMOKE PASS: login/roles/logout/reset-auth + book/validate/409 + confirm/reject/409 + patient status",
   );
 }
 
