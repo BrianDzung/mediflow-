@@ -1,0 +1,29 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: file:/app/data/staging.db
+      # Demo signing key for local docker only — set a unique value on a real host.
+      AUTH_SECRET: mediflow-demo-secret-change-me-32ch
+      STAGING_RESET_TOKEN: local-staging-reset
+      SEED_ON_START: if-empty
+    volumes:
+      - staging-data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  staging-data:

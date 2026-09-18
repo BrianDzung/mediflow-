@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { seedDatabase } from "../prisma/seed-data";
+import { seedDatabase } from "../src/lib/seed-data";
 import { bookAppointment, BookingError, listOpenSlots } from "../src/lib/booking";
 
 const prisma = new PrismaClient();

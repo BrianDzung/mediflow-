@@ -41,6 +41,9 @@ yarn-error.log*
 .env.local
 .env*.local
 
+# local staging sqlite volume (docker-compose)
+/data
+
 # vercel
 .vercel
 

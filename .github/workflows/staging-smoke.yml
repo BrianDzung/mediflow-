@@ -1,0 +1,26 @@
+# Manual smoke against a live staging URL after Brian deploys.
+# Repository secret STAGING_RESET_TOKEN must match the host env var.
+
+name: Staging smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Staging origin, e.g. https://mediflow-staging.onrender.com
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: HTTP E2E against staging
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          STAGING_RESET_TOKEN: ${{ secrets.STAGING_RESET_TOKEN }}
+        run: node scripts/smoke-e2e.mjs
