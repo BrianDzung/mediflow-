@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AuthError, getSession } from "@/lib/auth";
+import { assertPatient, AuthError, authHttpStatus, getSession } from "@/lib/auth";
 import {
   bookAppointment,
   BookingError,
@@ -10,32 +10,27 @@ import {
 export const runtime = "nodejs";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Chưa đăng nhập.", code: "UNAUTHENTICATED" }, { status: 401 });
+  try {
+    const session = assertPatient(await getSession());
+    const appointments = await listPatientAppointments(session.id);
+    return NextResponse.json({
+      appointments: appointments.map(serializeAppointment),
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: authHttpStatus(error) },
+      );
+    }
+    console.error(error);
+    return NextResponse.json({ error: "Không tải được lịch hẹn.", code: "ERROR" }, { status: 500 });
   }
-  if (session.role !== "patient") {
-    return NextResponse.json(
-      { error: "Chỉ bệnh nhân mới xem lịch của mình tại đây.", code: "FORBIDDEN" },
-      { status: 403 },
-    );
-  }
-
-  const appointments = await listPatientAppointments(session.id);
-  return NextResponse.json({
-    appointments: appointments.map(serializeAppointment),
-  });
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
-      throw new AuthError("UNAUTHENTICATED", "Vui lòng đăng nhập.");
-    }
-    if (session.role !== "patient") {
-      throw new BookingError("FORBIDDEN", "Chỉ bệnh nhân mới được đặt lịch.");
-    }
+    const session = assertPatient(await getSession());
 
     const body = (await request.json()) as {
       slotId?: string;
@@ -53,7 +48,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ appointment: serializeAppointment(appointment) }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: 401 });
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: authHttpStatus(error) },
+      );
     }
     if (error instanceof BookingError) {
       const status =

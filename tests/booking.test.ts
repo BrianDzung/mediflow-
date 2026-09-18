@@ -1,7 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { seedDatabase } from "../src/lib/seed-data";
-import { bookAppointment, BookingError, listOpenSlots } from "../src/lib/booking";
+import {
+  bookAppointment,
+  BookingError,
+  listOpenSlots,
+  listPatientAppointments,
+} from "../src/lib/booking";
 
 const prisma = new PrismaClient();
 
@@ -115,6 +120,39 @@ describe("bookAppointment", () => {
 
     expect(await prisma.appointment.count()).toBe(1);
     expect((await prisma.slot.findUnique({ where: { id: slot.id } }))?.status).toBe("booked");
+  });
+
+  it("lists only the signed-in patient's own appointments", async () => {
+    const patient = await getPatient("patient@mediflow.demo");
+    const other = await getPatient("patient2@mediflow.demo");
+    const slots = await prisma.slot.findMany({
+      where: { status: "open" },
+      orderBy: { startsAt: "asc" },
+    });
+    if (slots.length < 2) throw new Error("expected multiple seed slots");
+
+    const mine = await bookAppointment(
+      {
+        patientUserId: patient.id,
+        slotId: slots[0].id,
+        patientName: patient.name,
+        patientPhone: "0901234567",
+      },
+      prisma,
+    );
+    await bookAppointment(
+      {
+        patientUserId: other.id,
+        slotId: slots[1].id,
+        patientName: other.name,
+        patientPhone: "0912345678",
+      },
+      prisma,
+    );
+
+    const listed = await listPatientAppointments(patient.id, prisma);
+    expect(listed.map((item) => item.id)).toEqual([mine.id]);
+    expect(listed.every((item) => item.patientUserId === patient.id)).toBe(true);
   });
 
   it("does not allow a receptionist to book", async () => {

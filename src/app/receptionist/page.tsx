@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { ReceptionistPendingBoard } from "@/components/ReceptionistPendingBoard";
-import { getSession } from "@/lib/auth";
+import { getSession, receptionistPageAccess } from "@/lib/auth";
 import { serializeAppointment } from "@/lib/booking";
 import { loadReceptionistPendingList } from "@/lib/receptionist";
 
@@ -10,11 +10,12 @@ export const dynamic = "force-dynamic";
 
 export default async function ReceptionistPendingPage() {
   const user = await getSession();
-  if (!user) {
+  const access = receptionistPageAccess(user);
+  if (access === "login" || !user) {
     redirect("/login");
   }
 
-  if (user.role !== "receptionist") {
+  if (access === "forbidden") {
     return (
       <div className="min-h-full">
         <AppHeader user={user} />

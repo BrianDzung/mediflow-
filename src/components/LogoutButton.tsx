@@ -5,9 +5,10 @@ import { useState } from "react";
 
 type Props = {
   userName: string;
+  userRole?: string;
 };
 
-export function LogoutButton({ userName }: Props) {
+export function LogoutButton({ userName, userRole }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -20,7 +21,10 @@ export function LogoutButton({ userName }: Props) {
 
   return (
     <div className="flex items-center gap-3 text-sm">
-      <span className="hidden text-teal-50 sm:inline">{userName}</span>
+      <span className="hidden text-teal-50 sm:inline">
+        {userName}
+        {userRole ? ` · ${userRole}` : ""}
+      </span>
       <button
         type="button"
         onClick={logout}

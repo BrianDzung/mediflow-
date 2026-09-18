@@ -37,6 +37,7 @@ export async function seedDatabase(client: PrismaClient) {
   await client.appointment.deleteMany();
   await client.slot.deleteMany();
   await client.doctor.deleteMany();
+  await client.session.deleteMany();
   await client.user.deleteMany();
   await client.clinic.deleteMany();
 

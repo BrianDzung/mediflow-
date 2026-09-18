@@ -1,17 +1,18 @@
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { BookingForm } from "@/components/BookingForm";
-import { getSession } from "@/lib/auth";
+import { bookingPageAccess, getSession, postLoginPath } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function BookPage() {
   const user = await getSession();
-  if (!user) {
+  const access = bookingPageAccess(user);
+  if (access === "login" || !user) {
     redirect("/login");
   }
-  if (user.role !== "patient") {
-    redirect("/");
+  if (access === "forbidden") {
+    redirect(postLoginPath(user));
   }
 
   return (
