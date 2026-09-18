@@ -4,7 +4,6 @@ import { AppHeader } from "@/components/AppHeader";
 import { getSession } from "@/lib/auth";
 import { listPatientAppointments } from "@/lib/booking";
 import { formatSlotRange, statusLabel } from "@/lib/format";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -15,24 +14,7 @@ export default async function HomePage() {
   }
 
   if (user.role === "receptionist") {
-    const pendingCount = await prisma.appointment.count({
-      where: { status: "pending" },
-    });
-    return (
-      <div className="min-h-full">
-        <AppHeader user={user} />
-        <main className="mx-auto max-w-4xl px-4 py-8">
-          <h1 className="text-2xl font-semibold">Xin chào, {user.name}</h1>
-          <p className="mt-2 text-slate-600">
-            Bạn đang đăng nhập vai trò lễ tân. Danh sách xác nhận lịch (M2) và thao tác
-            xác nhận/từ chối (M3) sẽ bổ sung ở sprint tiếp theo.
-          </p>
-          <p className="mt-4 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm">
-            Hiện có <strong>{pendingCount}</strong> lịch đang <code>pending</code>.
-          </p>
-        </main>
-      </div>
-    );
+    redirect("/receptionist");
   }
 
   const appointments = await listPatientAppointments(user.id);

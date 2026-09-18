@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { PILOT_CLINIC_NAME } from "../src/lib/constants";
 
 export const DEMO_PASSWORD = "demo1234";
 
@@ -19,7 +20,7 @@ export async function seedDatabase(client: PrismaClient) {
   await client.clinic.deleteMany();
 
   const clinic = await client.clinic.create({
-    data: { name: "Phòng khám Đa khoa MediFlow" },
+    data: { name: PILOT_CLINIC_NAME },
   });
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
