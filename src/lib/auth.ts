@@ -239,11 +239,19 @@ export function receptionistPageAccess(user: SessionUser | null): PageAccess {
   return "ok";
 }
 
+/** Secure cookies break Chromium on http://127.0.0.1. E2E sets COOKIE_SECURE=false. */
+export function sessionCookieSecure() {
+  const flag = process.env.COOKIE_SECURE?.trim().toLowerCase();
+  if (flag === "false" || flag === "0") return false;
+  if (flag === "true" || flag === "1") return true;
+  return process.env.NODE_ENV === "production";
+}
+
 export function sessionCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: sessionCookieSecure(),
     path: "/",
     maxAge: maxAgeSeconds,
     ...(maxAgeSeconds <= 0 ? { expires: new Date(0) } : {}),
