@@ -126,15 +126,26 @@ npm run smoke
 # or: BASE_URL=https://YOUR-STAGING-URL npm run smoke
 ```
 
+Browser E2E (Playwright, local/CI only — no live staging URL):
+
+```bash
+npx playwright install chromium   # once per machine
+npm run build                     # required the first time; Playwright reuses .next
+npm run test:e2e                  # headless; starts staging:start on :3100 + fresh SQLite
+```
+
 ## Tests
 
 ```bash
 npm test
 npm run lint
 npm run build
+npm run test:e2e
 ```
 
-Covers login success/failure, role guards (patient vs receptionist, pages + APIs), logout session invalidation, booking, receptionist pending list, confirm/reject, and staging seed/reset authorization. CI also starts `npm run staging:start` and runs the HTTP smoke script.
+Vitest covers login success/failure, role guards (patient vs receptionist, pages + APIs), logout session invalidation, booking, receptionist pending list, confirm/reject, and staging seed/reset authorization.
+
+Playwright covers the same MVP paths in a real Chromium session against `staging:start` (isolated `e2e.db`, reset between tests): patient login / wrong password, book → pending, patient cannot open receptionist UI, receptionist sees and confirms the booking, receptionist rejects another booking with a reason, logout blocks the old session. CI installs Chromium, starts a local server, and runs both the HTTP smoke script and `npm run test:e2e` headless.
 
 ## Scripts
 
@@ -147,6 +158,8 @@ Covers login success/failure, role guards (patient vs receptionist, pages + APIs
 | `npm run staging:start` | `db push`, seed if empty, `next start` (0.0.0.0 / `$PORT`) |
 | `npm run smoke` | HTTP E2E: health, optional reset, book → confirm |
 | `npm test` | Vitest (auth, booking, receptionist, staging) |
+| `npm run test:e2e` | Playwright Chromium vs local `staging:start` |
+| `npm run test:e2e:install` | Download Playwright Chromium |
 | `npm run build` / `npm start` | Production server |
 
 ## Environment
@@ -157,6 +170,7 @@ See `.env.example` (demo values only):
 - `AUTH_SECRET` — cookie signing key. The example value is a **demo** key. Hosts must generate their own (Render `generateValue`). Never commit production secrets.
 - `STAGING_RESET_TOKEN` — optional; enables `POST /api/staging/reset`
 - `SEED_ON_START` — `if-empty` (default) \| `always` \| `never`
+- `COOKIE_SECURE` — optional `true`/`false`. Unset follows `NODE_ENV=production`. Playwright sets `false` so the session cookie works on local HTTP.
 - `PORT` / `HOSTNAME` — used by `staging:start`
 
 ## Out of scope (this PR)

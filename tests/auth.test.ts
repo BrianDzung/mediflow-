@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { jwtVerify, SignJWT } from "jose";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   assertAuthenticated,
   assertPatient,
@@ -15,6 +15,7 @@ import {
   readSessionFromToken,
   receptionistPageAccess,
   revokeSessionFromToken,
+  sessionCookieSecure,
 } from "../src/lib/auth";
 import { DEMO_PASSWORD, seedDatabase } from "../src/lib/seed-data";
 
@@ -241,5 +242,27 @@ describe("logout invalidates the session", () => {
     expect(await readSessionFromToken(second.token, prisma)).toMatchObject({
       email: "patient@mediflow.demo",
     });
+  });
+});
+
+describe("sessionCookieSecure", () => {
+  const previous = process.env.COOKIE_SECURE;
+
+  afterEach(() => {
+    if (previous === undefined) {
+      delete process.env.COOKIE_SECURE;
+    } else {
+      process.env.COOKIE_SECURE = previous;
+    }
+  });
+
+  it("COOKIE_SECURE=false keeps the session cookie usable on local HTTP", () => {
+    process.env.COOKIE_SECURE = "false";
+    expect(sessionCookieSecure()).toBe(false);
+  });
+
+  it("COOKIE_SECURE=true forces the Secure flag", () => {
+    process.env.COOKIE_SECURE = "true";
+    expect(sessionCookieSecure()).toBe(true);
   });
 });
