@@ -5,10 +5,9 @@ import {
   listPendingAppointmentsForClinic,
   serializeAppointment,
 } from "./booking";
+import { MIN_REJECT_REASON_LENGTH } from "./constants";
 import { prisma } from "./prisma";
 import { trimRequired } from "./validation";
-
-export const MIN_REJECT_REASON_LENGTH = 3;
 
 export type AppointmentDecision = "confirm" | "reject";
 

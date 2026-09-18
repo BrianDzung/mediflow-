@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { MIN_REJECT_REASON_LENGTH } from "@/lib/constants";
 import { formatSlotRange, statusLabel } from "@/lib/format";
 
 export type PendingAppointmentRow = {
@@ -58,47 +59,76 @@ export function ReceptionistPendingBoard({ clinicName, appointments }: Props) {
           lại trang này.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-700">
-              <tr>
-                <th className="px-4 py-3 font-medium">Thời gian</th>
-                <th className="px-4 py-3 font-medium">Bác sĩ</th>
-                <th className="px-4 py-3 font-medium">Bệnh nhân</th>
-                <th className="px-4 py-3 font-medium">SĐT</th>
-                <th className="px-4 py-3 font-medium">Trạng thái</th>
-                <th className="px-4 py-3 font-medium">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((appointment) => (
-                <tr key={appointment.id} className="border-b border-slate-100 last:border-0 align-top">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatSlotRange(appointment.startsAt, appointment.endsAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-medium">{appointment.doctorName}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500">
-                      {appointment.doctorSpecialty}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{appointment.patientName}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{appointment.patientPhone}</td>
-                  <td className="px-4 py-3 font-semibold text-teal-800">
-                    {statusLabel(appointment.status)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <PendingRowActions
-                      appointmentId={appointment.id}
-                      disabled={appointment.status !== "pending"}
-                      onDecided={(message) => onDecided(appointment.id, message)}
-                    />
-                  </td>
+        <>
+          <ul className="mt-6 space-y-3 md:hidden">
+            {rows.map((appointment) => (
+              <li
+                key={appointment.id}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"
+              >
+                <p className="font-medium">{appointment.doctorName}</p>
+                <p className="text-xs text-slate-500">{appointment.doctorSpecialty}</p>
+                <p className="mt-1 text-slate-700">
+                  {formatSlotRange(appointment.startsAt, appointment.endsAt)}
+                </p>
+                <p className="mt-1">
+                  {appointment.patientName} — {appointment.patientPhone}
+                </p>
+                <p className="mt-1 font-semibold text-teal-800">
+                  {statusLabel(appointment.status)}
+                </p>
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <PendingRowActions
+                    appointmentId={appointment.id}
+                    disabled={appointment.status !== "pending"}
+                    onDecided={(message) => onDecided(appointment.id, message)}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 hidden overflow-x-auto rounded-lg border border-slate-200 bg-white md:block">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-slate-700">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Thời gian</th>
+                  <th className="px-4 py-3 font-medium">Bác sĩ</th>
+                  <th className="px-4 py-3 font-medium">Bệnh nhân</th>
+                  <th className="px-4 py-3 font-medium">SĐT</th>
+                  <th className="px-4 py-3 font-medium">Trạng thái</th>
+                  <th className="px-4 py-3 font-medium">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((appointment) => (
+                  <tr key={appointment.id} className="border-b border-slate-100 last:border-0 align-top">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {formatSlotRange(appointment.startsAt, appointment.endsAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-medium">{appointment.doctorName}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {appointment.doctorSpecialty}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{appointment.patientName}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{appointment.patientPhone}</td>
+                    <td className="px-4 py-3 font-semibold text-teal-800">
+                      {statusLabel(appointment.status)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <PendingRowActions
+                        appointmentId={appointment.id}
+                        disabled={appointment.status !== "pending"}
+                        onDecided={(message) => onDecided(appointment.id, message)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
   );
@@ -120,6 +150,12 @@ function PendingRowActions({
 
   async function submit(decision: "confirm" | "reject") {
     setError("");
+    if (decision === "reject" && reason.trim().length < MIN_REJECT_REASON_LENGTH) {
+      setError(
+        `Vui lòng nhập lý do từ chối (tối thiểu ${MIN_REJECT_REASON_LENGTH} ký tự).`,
+      );
+      return;
+    }
     setPending(true);
     try {
       const response = await fetch(`/api/receptionist/appointments/${appointmentId}`, {
