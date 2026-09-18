@@ -1,6 +1,6 @@
 # MediFlow
 
-Private-clinic appointment booking (pilot: 1 clinic). Sprint 1 Must **M1–M3** plus **M5 staging/seed**: a logged-in patient can request an appointment; a receptionist can view pending bookings and confirm or reject them; the patient sees the new status. Demo data can be seeded and reset locally and on staging.
+Private-clinic appointment booking (pilot: 1 clinic). Sprint 1 Must **M1–M4** plus **M5 staging/seed**: a logged-in patient can request an appointment; a receptionist can view pending bookings and confirm or reject them; the patient sees the new status. Login is role-scoped (patient vs receptionist) and logout invalidates the server session. Demo data can be seeded and reset locally and on staging.
 
 Vietnamese UI labels; code and comments in English.
 
@@ -8,7 +8,7 @@ Vietnamese UI labels; code and comments in English.
 
 - Next.js (App Router) + TypeScript
 - SQLite via Prisma
-- Cookie session (signed JWT)
+- Cookie session (signed JWT + server-side session row; logout deletes the row)
 - Staging: long-running Node/Docker (Render / Railway / Fly). Vercel config is included but **not recommended** with a SQLite file (ephemeral serverless disk).
 
 ## Setup
@@ -99,6 +99,16 @@ Then open http://localhost:3000 and run `BASE_URL=http://127.0.0.1:3000 STAGING_
 
 Do **not** deploy to a production domain. Staging only.
 
+## Demo auth (M4)
+
+Seed emails/passwords are unchanged (table above).
+
+1. Open `/login`. Sign in as `patient@mediflow.demo` / `demo1234`. You land on **Lịch của tôi** with **Đặt lịch**. Header shows **Bệnh nhân**.
+2. Open `/receptionist` as that patient → **Không có quyền truy cập**. `GET /api/receptionist/appointments` returns **403**.
+3. Sign out. Click **Đăng nhập** again with the same email and a wrong password → **Email hoặc mật khẩu không đúng.**
+4. Sign in as `receptionist@mediflow.demo` / `demo1234`. You land on **Lịch chờ xác nhận**. Header shows **Lễ tân**. `/book` redirects away from the patient booking form. `GET /api/appointments` returns **403**.
+5. Sign out. The old session cookie cannot call `/api/auth/me` or other protected APIs (**401**). Signing in as the other role does not keep the previous session.
+
 ## Demo E2E (M1–M3)
 
 Use the same database (do not reset between steps). On staging, `POST /api/staging/reset` first if slots are exhausted.
@@ -124,7 +134,7 @@ npm run lint
 npm run build
 ```
 
-Covers booking, receptionist pending list, confirm/reject, and staging seed/reset authorization. CI also starts `npm run staging:start` and runs the HTTP smoke script.
+Covers login success/failure, role guards (patient vs receptionist, pages + APIs), logout session invalidation, booking, receptionist pending list, confirm/reject, and staging seed/reset authorization. CI also starts `npm run staging:start` and runs the HTTP smoke script.
 
 ## Scripts
 
@@ -136,7 +146,7 @@ Covers booking, receptionist pending list, confirm/reject, and staging seed/rese
 | `npm run db:reset` | Wipe SQLite DB and re-seed |
 | `npm run staging:start` | `db push`, seed if empty, `next start` (0.0.0.0 / `$PORT`) |
 | `npm run smoke` | HTTP E2E: health, optional reset, book → confirm |
-| `npm test` | Vitest |
+| `npm test` | Vitest (auth, booking, receptionist, staging) |
 | `npm run build` / `npm start` | Production server |
 
 ## Environment
@@ -151,9 +161,8 @@ See `.env.example` (demo values only):
 
 ## Out of scope (this PR)
 
-Richer auth/session coverage (M4), prescriptions, SMS, multi-clinic, production deploy.
+Prescriptions, SMS, multi-clinic, production deploy. Live staging hostname is still waiting on Brian (M5 config is on `main`).
 
 ## Follow-ups
 
 - **Brian** — connect Render (or Railway/Fly), paste the real staging URL into this README + the PR
-- **M4** — Tighten role checks (patient vs receptionist) and logout session invalidation coverage

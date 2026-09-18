@@ -27,7 +27,10 @@ export function AppHeader({ user }: { user: SessionUser | null }) {
                 </Link>
               </nav>
             )}
-            <LogoutButton userName={user.name} />
+            <LogoutButton
+              userName={user.name}
+              userRole={user.role === "receptionist" ? "Lễ tân" : "Bệnh nhân"}
+            />
           </div>
         ) : null}
       </div>

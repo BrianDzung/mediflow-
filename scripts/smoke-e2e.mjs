@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * HTTP smoke for M5: health + optional reset + patient book → receptionist confirm
- * → patient sees confirmed.
+ * HTTP smoke: health + optional reset + M4 auth (login fail, role guards, logout)
+ * + patient book → receptionist confirm → patient sees confirmed (M1–M3).
  *
  *   BASE_URL=http://127.0.0.1:3000 node scripts/smoke-e2e.mjs
  *
@@ -48,7 +48,19 @@ async function login(email, password) {
   if (!response.ok) {
     fail(`login ${email} → ${response.status}: ${JSON.stringify(body)}`);
   }
-  return sessionCookie(response);
+  return { cookie: sessionCookie(response), user: body.user };
+}
+
+async function expectJson(path, options, expectedStatus, expectedCode) {
+  const response = await fetch(`${BASE_URL}${path}`, options);
+  const body = await readJson(response);
+  if (response.status !== expectedStatus) {
+    fail(`${path} expected ${expectedStatus} got ${response.status}: ${JSON.stringify(body)}`);
+  }
+  if (expectedCode && body.code !== expectedCode) {
+    fail(`${path} expected code ${expectedCode} got ${JSON.stringify(body)}`);
+  }
+  return body;
 }
 
 async function main() {
@@ -94,9 +106,65 @@ async function main() {
     console.log("clinic", inventory.clinicName);
   }
 
-  const patientCookie = await login(PATIENT_EMAIL, DEMO_PASSWORD);
-  const doctorsResponse = await fetch(`${BASE_URL}/api/doctors`, {
+  const wrongLogin = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: PATIENT_EMAIL, password: "wrong-password" }),
+  });
+  const wrongBody = await readJson(wrongLogin);
+  if (wrongLogin.status !== 401) {
+    fail(`wrong password expected 401 got ${wrongLogin.status}: ${JSON.stringify(wrongBody)}`);
+  }
+  if (!String(wrongBody.error ?? "").includes("mật khẩu")) {
+    fail(`wrong password should show a clear error, got ${JSON.stringify(wrongBody)}`);
+  }
+  console.log("login failure ok");
+
+  const { cookie: patientCookie, user: patientUser } = await login(PATIENT_EMAIL, DEMO_PASSWORD);
+  if (patientUser?.role !== "patient") {
+    fail(`expected patient role, got ${JSON.stringify(patientUser)}`);
+  }
+  await expectJson(
+    "/api/receptionist/appointments",
+    { headers: { cookie: patientCookie } },
+    403,
+    "FORBIDDEN",
+  );
+
+  const { cookie: receptionistCookie } = await login(RECEPTIONIST_EMAIL, DEMO_PASSWORD);
+  await expectJson("/api/appointments", { headers: { cookie: receptionistCookie } }, 403, "FORBIDDEN");
+  await expectJson("/api/doctors", { headers: { cookie: receptionistCookie } }, 403, "FORBIDDEN");
+  await expectJson(
+    "/api/appointments",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: receptionistCookie },
+      body: JSON.stringify({
+        slotId: "not-a-slot",
+        patientName: "Phạm Thị Lan",
+        patientPhone: "0987654321",
+      }),
+    },
+    403,
+    "FORBIDDEN",
+  );
+  console.log("role guards ok");
+
+  const logoutResponse = await fetch(`${BASE_URL}/api/auth/logout`, {
+    method: "POST",
     headers: { cookie: patientCookie },
+  });
+  const logoutBody = await readJson(logoutResponse);
+  if (!logoutResponse.ok || logoutBody.ok !== true) {
+    fail(`logout ${logoutResponse.status}: ${JSON.stringify(logoutBody)}`);
+  }
+  await expectJson("/api/auth/me", { headers: { cookie: patientCookie } }, 401, "UNAUTHENTICATED");
+  await expectJson("/api/appointments", { headers: { cookie: patientCookie } }, 401, "UNAUTHENTICATED");
+  console.log("logout invalidates session ok");
+
+  const { cookie: patientCookieFresh } = await login(PATIENT_EMAIL, DEMO_PASSWORD);
+  const doctorsResponse = await fetch(`${BASE_URL}/api/doctors`, {
+    headers: { cookie: patientCookieFresh },
   });
   const doctorsBody = await readJson(doctorsResponse);
   if (!doctorsResponse.ok || !doctorsBody.doctors?.length) {
@@ -106,7 +174,7 @@ async function main() {
 
   const slotsResponse = await fetch(
     `${BASE_URL}/api/slots?doctorId=${encodeURIComponent(doctor.id)}`,
-    { headers: { cookie: patientCookie } },
+    { headers: { cookie: patientCookieFresh } },
   );
   const slotsBody = await readJson(slotsResponse);
   if (!slotsResponse.ok || !slotsBody.slots?.length) {
@@ -116,7 +184,7 @@ async function main() {
 
   const bookResponse = await fetch(`${BASE_URL}/api/appointments`, {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: patientCookie },
+    headers: { "content-type": "application/json", cookie: patientCookieFresh },
     body: JSON.stringify({
       slotId: slot.id,
       patientName: "Nguyễn Thị Hoa",
@@ -130,9 +198,19 @@ async function main() {
   const appointmentId = bookBody.appointment.id;
   console.log("booked pending", appointmentId);
 
-  const receptionistCookie = await login(RECEPTIONIST_EMAIL, DEMO_PASSWORD);
+  const patientConfirm = await fetch(`${BASE_URL}/api/receptionist/appointments/${appointmentId}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: patientCookieFresh },
+    body: JSON.stringify({ decision: "confirm" }),
+  });
+  const patientConfirmBody = await readJson(patientConfirm);
+  if (patientConfirm.status !== 403) {
+    fail(`patient confirm expected 403 got ${patientConfirm.status}: ${JSON.stringify(patientConfirmBody)}`);
+  }
+
+  const { cookie: receptionistCookieFresh } = await login(RECEPTIONIST_EMAIL, DEMO_PASSWORD);
   const pendingResponse = await fetch(`${BASE_URL}/api/receptionist/appointments`, {
-    headers: { cookie: receptionistCookie },
+    headers: { cookie: receptionistCookieFresh },
   });
   const pendingBody = await readJson(pendingResponse);
   if (!pendingResponse.ok) {
@@ -145,7 +223,7 @@ async function main() {
 
   const confirmResponse = await fetch(`${BASE_URL}/api/receptionist/appointments/${appointmentId}`, {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: receptionistCookie },
+    headers: { "content-type": "application/json", cookie: receptionistCookieFresh },
     body: JSON.stringify({ decision: "confirm" }),
   });
   const confirmBody = await readJson(confirmResponse);
@@ -154,7 +232,7 @@ async function main() {
   }
   console.log("confirmed", appointmentId);
 
-  const patientCookieAgain = await login(PATIENT_EMAIL, DEMO_PASSWORD);
+  const { cookie: patientCookieAgain } = await login(PATIENT_EMAIL, DEMO_PASSWORD);
   const mineResponse = await fetch(`${BASE_URL}/api/appointments`, {
     headers: { cookie: patientCookieAgain },
   });
@@ -166,7 +244,9 @@ async function main() {
   if (!mine) fail("patient list is missing the confirmed appointment");
   if (mine.status !== "confirmed") fail(`expected confirmed, got ${mine.status}`);
 
-  console.log("SMOKE PASS: patient book → receptionist confirm → patient sees confirmed");
+  console.log(
+    "SMOKE PASS: login/roles/logout + patient book → receptionist confirm → patient sees confirmed",
+  );
 }
 
 main().catch((error) => {

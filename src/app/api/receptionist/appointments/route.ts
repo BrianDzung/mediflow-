@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AuthError, getSession } from "@/lib/auth";
+import { AuthError, authHttpStatus, getSession } from "@/lib/auth";
 import { serializeAppointment } from "@/lib/booking";
 import { loadReceptionistPendingList } from "@/lib/receptionist";
 
@@ -15,8 +15,10 @@ export async function GET() {
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      const status = error.code === "UNAUTHENTICATED" ? 401 : 403;
-      return NextResponse.json({ error: error.message, code: error.code }, { status });
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: authHttpStatus(error) },
+      );
     }
     console.error(error);
     return NextResponse.json(

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
-import { getSession } from "@/lib/auth";
+import { getSession, patientHomeAccess, postLoginPath } from "@/lib/auth";
 import { listPatientAppointments } from "@/lib/booking";
 import { formatSlotRange, statusClassName, statusLabel } from "@/lib/format";
 
@@ -9,12 +9,15 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const user = await getSession();
-  if (!user) {
+  const access = patientHomeAccess(user);
+  if (access === "login") {
     redirect("/login");
   }
-
-  if (user.role === "receptionist") {
-    redirect("/receptionist");
+  if (access === "receptionist" && user) {
+    redirect(postLoginPath(user));
+  }
+  if (access !== "ok" || !user) {
+    redirect("/login");
   }
 
   const appointments = await listPatientAppointments(user.id);

@@ -20,12 +20,15 @@ export function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as {
+        error?: string;
+        user?: { role?: string };
+      };
       if (!response.ok) {
         setError(data.error ?? "Không thể đăng nhập.");
         return;
       }
-      router.push("/");
+      router.push(data.user?.role === "receptionist" ? "/receptionist" : "/");
       router.refresh();
     } catch {
       setError("Không thể kết nối máy chủ.");
